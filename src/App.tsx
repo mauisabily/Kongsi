@@ -81,6 +81,7 @@ export default function App() {
     roomCode,
     isCustomRoom,
     connectionStatus,
+    connectionError,
     transfers,
     textMessages,
     isForceWebSocket,
@@ -245,8 +246,8 @@ export default function App() {
 
   // Copy room link
   const copyRoomLink = () => {
-    const origin = useProductionSignaling || window.location.origin.includes("localhost") || window.location.origin.includes("run.app")
-      ? "https://kongsi.kpst.my"
+    const origin = useProductionSignaling 
+      ? "https://kongsi.kpst.my" 
       : window.location.origin;
     const url = `${origin}${window.location.pathname}?room=${roomCode}`;
     navigator.clipboard.writeText(url).then(() => {
@@ -328,10 +329,24 @@ export default function App() {
           <div className="p-4 rounded-2xl border border-slate-200 bg-white shadow-sm flex flex-col gap-3" id="identity-card">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Your Identity</span>
-              <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                <span className="font-semibold">Online</span>
-              </div>
+              {connectionStatus === "connected" && (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-600" id="status-online">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  <span className="font-semibold">Online</span>
+                </div>
+              )}
+              {connectionStatus === "connecting" && (
+                <div className="flex items-center gap-1.5 text-xs text-amber-500" id="status-connecting">
+                  <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                  <span className="font-semibold">Connecting...</span>
+                </div>
+              )}
+              {connectionStatus === "disconnected" && (
+                <div className="flex items-center gap-1.5 text-xs text-rose-500" id="status-offline">
+                  <span className="w-2 h-2 rounded-full bg-rose-500" />
+                  <span className="font-semibold">Offline</span>
+                </div>
+              )}
             </div>
 
             {peer ? (
@@ -565,6 +580,42 @@ export default function App() {
                     Make sure the receiving device also has the Mauidrop page open.
                   </p>
                 </div>
+
+                {connectionError && (
+                  <div className="w-full max-w-md mx-auto mt-3 p-4 rounded-xl border border-rose-100 bg-rose-50/70 text-rose-800 text-xs leading-relaxed relative z-10 flex flex-col gap-2 shadow-xs" id="ws-error-banner">
+                    <div className="flex items-start gap-2.5">
+                      <AlertCircle size={16} className="text-rose-500 shrink-0 mt-0.5 animate-pulse" />
+                      <div>
+                        <span className="font-bold">Signaling Connection Error</span>
+                        <p className="text-rose-700/90 mt-0.5">
+                          Failed to establish the WebSocket connection. If you are hosting on **aaPanel**, **Nginx**, or a **reverse proxy**, you must enable WebSocket proxying.
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <details className="mt-1 border-t border-rose-200/50 pt-2 cursor-pointer select-none">
+                      <summary className="font-semibold text-rose-800 hover:text-rose-950 transition-colors list-none flex items-center gap-1">
+                        <span>🔧 View Nginx / aaPanel Fix Config</span>
+                      </summary>
+                      <div className="bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[9px] select-all overflow-x-auto mt-2 border border-slate-800 shadow-inner">
+                        <p className="text-sky-400"># Add inside the 'server' block in Nginx/aaPanel:</p>
+                        <p>location /ws &#123;</p>
+                        <p className="pl-4">proxy_pass http://127.0.0.1:3000/ws;</p>
+                        <p className="pl-4">proxy_http_version 1.1;</p>
+                        <p className="pl-4">proxy_set_header Upgrade $http_upgrade;</p>
+                        <p className="pl-4">proxy_set_header Connection "upgrade";</p>
+                        <p className="pl-4">proxy_set_header Host $host;</p>
+                        <p>&#125;</p>
+                      </div>
+                    </details>
+
+                    {useProductionSignaling && (
+                      <p className="text-[10px] text-rose-600 mt-1 border-t border-rose-100/50 pt-1.5">
+                        💡 Connecting to <strong>kongsi.kpst.my</strong>. You can toggle "Connect to Production Server" off in Room settings to fallback to local connection.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* THE RADAR CANVAS */}
                 <div className="relative flex-1 w-full flex items-center justify-center min-h-[300px]">
@@ -955,6 +1006,31 @@ export default function App() {
                   <p className="text-xs font-mono font-bold text-blue-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                     {isCustomRoom ? roomCode : `Local (Hashed IP: ${roomCode})`}
                   </p>
+                </div>
+
+                <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
+                  <div className="max-w-[75%]">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Production Signaling</label>
+                    <p className="text-[10px] text-slate-500 leading-tight">
+                      Connect to <strong>kongsi.kpst.my</strong> for cross-network sharing.
+                    </p>
+                  </div>
+                  <button
+                    onClick={toggleProductionSignaling}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                      useProductionSignaling ? "bg-blue-600" : "bg-slate-200"
+                    }`}
+                    role="switch"
+                    aria-checked={useProductionSignaling}
+                    id="toggle-prod-signaling-switch"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
+                        useProductionSignaling ? "translate-x-4" : "translate-x-0"
+                      }`}
+                    />
+                  </button>
                 </div>
 
                 <div className="border-t border-slate-100 pt-3">

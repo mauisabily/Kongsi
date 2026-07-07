@@ -10,6 +10,7 @@ export function useMauidrop() {
   const [roomCode, setRoomCode] = useState<string>("");
   const [isCustomRoom, setIsCustomRoom] = useState<boolean>(false);
   const [connectionStatus, setConnectionStatus] = useState<"connecting" | "connected" | "disconnected">("connecting");
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [transfers, setTransfers] = useState<FileTransferState[]>([]);
   const [textMessages, setTextMessages] = useState<TextMessage[]>([]);
   const [isForceWebSocket, setIsForceWebSocket] = useState<boolean>(false);
@@ -511,6 +512,7 @@ export function useMauidrop() {
 
     const connect = () => {
       setConnectionStatus("connecting");
+      setConnectionError(null);
       
       // Determine protocol: ws/wss based on the origin protocol
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -526,6 +528,7 @@ export function useMauidrop() {
       socket.onopen = () => {
         if (!active) return;
         setConnectionStatus("connected");
+        setConnectionError(null);
         console.log("[Mauidrop] Connected to signaling server");
       };
 
@@ -737,7 +740,15 @@ export function useMauidrop() {
       };
 
       socket.onerror = (err) => {
-        console.error("[WS] Error in socket connection:", err);
+        // Log as warn instead of error to avoid triggering error alerts for expected fallbacks
+        console.warn("[WS] Error in socket connection:", err);
+        if (useProductionSignaling) {
+          console.warn("[Mauidrop] Production signaling server connection failed. Falling back to local server...");
+          setUseProductionSignaling(false);
+          localStorage.setItem("mauidrop_use_prod_signaling", "false");
+        } else {
+          setConnectionError("Could not establish connection to the signaling server.");
+        }
         socket.close();
       };
     };
@@ -791,6 +802,7 @@ export function useMauidrop() {
     roomCode,
     isCustomRoom,
     connectionStatus,
+    connectionError,
     transfers,
     textMessages,
     isForceWebSocket,
