@@ -168,7 +168,9 @@ wss.on("connection", (ws: WebSocket, req: http.IncomingMessage) => {
         case "file-rejected":
         case "file-chunk":
         case "file-complete":
-        case "transfer-cancel": {
+        case "transfer-cancel":
+        case "peer-ping":
+        case "peer-pong": {
           if (targetId && connections.has(targetId)) {
             sendToPeer(targetId, {
               type,

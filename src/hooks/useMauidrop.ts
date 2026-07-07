@@ -13,6 +13,19 @@ export function useMauidrop() {
   const [transfers, setTransfers] = useState<FileTransferState[]>([]);
   const [textMessages, setTextMessages] = useState<TextMessage[]>([]);
   const [isForceWebSocket, setIsForceWebSocket] = useState<boolean>(false);
+  
+  const [peerLatencies, setPeerLatencies] = useState<Record<string, number>>({});
+  const [useProductionSignaling, setUseProductionSignaling] = useState<boolean>(() => {
+    return localStorage.getItem("mauidrop_use_prod_signaling") === "true";
+  });
+
+  const toggleProductionSignaling = useCallback(() => {
+    setUseProductionSignaling((prev) => {
+      const next = !prev;
+      localStorage.setItem("mauidrop_use_prod_signaling", String(next));
+      return next;
+    });
+  }, []);
 
   const socketRef = useRef<WebSocket | null>(null);
   
@@ -502,7 +515,9 @@ export function useMauidrop() {
       // Determine protocol: ws/wss based on the origin protocol
       const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
       const host = window.location.host;
-      const wsUrl = `${protocol}//${host}/ws`;
+      const wsUrl = useProductionSignaling 
+        ? "wss://kongsi.kpst.my/ws" 
+        : `${protocol}//${host}/ws`;
 
       console.log(`[Mauidrop] Connecting to WebSocket server: ${wsUrl}`);
       const socket = new WebSocket(wsUrl);
@@ -522,6 +537,20 @@ export function useMauidrop() {
           const { type, senderId, payload } = message;
 
           switch (type) {
+            case "peer-ping": {
+              sendMessage("peer-pong", senderId, { sentTime: payload.sentTime });
+              break;
+            }
+
+            case "peer-pong": {
+              const rtt = Date.now() - payload.sentTime;
+              setPeerLatencies((prev) => ({
+                ...prev,
+                [senderId]: rtt
+              }));
+              break;
+            }
+
             case "welcome": {
               setPeer({
                 id: payload.id,
@@ -725,7 +754,7 @@ export function useMauidrop() {
         cleanupWebRTCRef.current(id);
       }
     };
-  }, []);
+  }, [useProductionSignaling]);
 
   // Keep-alive interval to prevent server termination of idle sockets
   useEffect(() => {
@@ -737,6 +766,24 @@ export function useMauidrop() {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Periodically ping peers to measure latency/signal strength
+  useEffect(() => {
+    if (connectionStatus !== "connected" || peers.length === 0) return;
+
+    // Send an initial ping to all peers immediately when the peer list changes
+    peers.forEach((p) => {
+      sendMessage("peer-ping", p.id, { sentTime: Date.now() });
+    });
+
+    const interval = setInterval(() => {
+      peers.forEach((p) => {
+        sendMessage("peer-ping", p.id, { sentTime: Date.now() });
+      });
+    }, 8000); // every 8 seconds
+
+    return () => clearInterval(interval);
+  }, [peers, connectionStatus, sendMessage]);
 
   return {
     peer,
@@ -753,6 +800,9 @@ export function useMauidrop() {
     acceptTransfer,
     rejectTransfer,
     cancelTransfer,
-    sendTextMessage
+    sendTextMessage,
+    peerLatencies,
+    useProductionSignaling,
+    toggleProductionSignaling
   };
 }

@@ -29,6 +29,51 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 
+const renderSignalIndicator = (latency: number | undefined) => {
+  if (latency === undefined) {
+    return (
+      <div className="flex gap-0.5 items-end justify-center h-2.5 px-1 py-0.5" title="Measuring latency...">
+        <div className="w-0.5 h-1 bg-slate-300 animate-pulse" />
+        <div className="w-0.5 h-1.5 bg-slate-300 animate-pulse delay-75" />
+        <div className="w-0.5 h-2 bg-slate-300 animate-pulse delay-150" />
+        <div className="w-0.5 h-2.5 bg-slate-300 animate-pulse delay-300" />
+      </div>
+    );
+  }
+
+  let colorClass = "bg-emerald-500";
+  let bars = 4;
+  let text = `${latency}ms`;
+
+  if (latency < 80) {
+    colorClass = "bg-emerald-500";
+    bars = 4;
+  } else if (latency < 180) {
+    colorClass = "bg-emerald-400";
+    bars = 3;
+  } else if (latency < 300) {
+    colorClass = "bg-amber-400";
+    bars = 2;
+  } else {
+    colorClass = "bg-rose-500";
+    bars = 1;
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-0.5" title={`Latency: ${latency}ms`}>
+      <div className="flex gap-0.5 items-end h-2.5">
+        <div className={`w-0.5 h-1 rounded-xs ${bars >= 1 ? colorClass : "bg-slate-200"}`} />
+        <div className={`w-0.5 h-1.5 rounded-xs ${bars >= 2 ? colorClass : "bg-slate-200"}`} />
+        <div className={`w-0.5 h-2 rounded-xs ${bars >= 3 ? colorClass : "bg-slate-200"}`} />
+        <div className={`w-0.5 h-2.5 rounded-xs ${bars >= 4 ? colorClass : "bg-slate-200"}`} />
+      </div>
+      <span className="text-[7px] font-mono font-bold text-slate-400 leading-none">
+        {text}
+      </span>
+    </div>
+  );
+};
+
 export default function App() {
   const {
     peer,
@@ -45,7 +90,10 @@ export default function App() {
     acceptTransfer,
     rejectTransfer,
     cancelTransfer,
-    sendTextMessage
+    sendTextMessage,
+    peerLatencies,
+    useProductionSignaling,
+    toggleProductionSignaling
   } = useMauidrop();
 
   // App UI State
@@ -197,7 +245,10 @@ export default function App() {
 
   // Copy room link
   const copyRoomLink = () => {
-    const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
+    const origin = useProductionSignaling || window.location.origin.includes("localhost") || window.location.origin.includes("run.app")
+      ? "https://kongsi.kpst.my"
+      : window.location.origin;
+    const url = `${origin}${window.location.pathname}?room=${roomCode}`;
     navigator.clipboard.writeText(url).then(() => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
@@ -380,6 +431,22 @@ export default function App() {
                 </div>
               </label>
 
+              <label className="flex items-start gap-3 cursor-pointer select-none group border-t border-slate-100 pt-3" id="prod-relay-toggle-label">
+                <input 
+                  type="checkbox"
+                  checked={useProductionSignaling}
+                  onChange={toggleProductionSignaling}
+                  className="mt-1 rounded border-slate-300 bg-slate-50 text-blue-600 focus:ring-blue-500/20 w-4 h-4 cursor-pointer"
+                  id="prod-relay-toggle"
+                />
+                <div className="text-xs">
+                  <span className="font-semibold text-slate-700 group-hover:text-blue-600 transition-colors">Connect to Production Server</span>
+                  <p className="text-slate-500 mt-0.5 leading-relaxed">
+                    Bridges your local client to the production server <strong>kongsi.kpst.my</strong>. Turn this on when testing from a development container or when you are alone on your network.
+                  </p>
+                </div>
+              </label>
+
               <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100/60 text-xs text-blue-800 leading-relaxed flex items-start gap-2">
                 <Info size={14} className="shrink-0 mt-0.5 text-blue-600" />
                 <p>
@@ -397,7 +464,7 @@ export default function App() {
             </p>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 font-mono truncate select-all">
-                {`${window.location.origin}${window.location.pathname}?room=${roomCode}`}
+                {`${(useProductionSignaling || window.location.origin.includes("localhost") || window.location.origin.includes("run.app")) ? "https://kongsi.kpst.my" : window.location.origin}${window.location.pathname}?room=${roomCode}`}
               </div>
               <button
                 onClick={copyRoomLink}
@@ -544,8 +611,13 @@ export default function App() {
                             className="flex flex-col items-center justify-center group cursor-pointer"
                             id={`peer-node-${p.id}`}
                           >
-                            <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 group-hover:border-blue-500 group-hover:bg-blue-50/50 flex items-center justify-center shadow-md group-hover:shadow-blue-500/5 transition-all">
-                              {getDeviceIcon(p.device, 20, "text-slate-600 group-hover:text-blue-600 transition-colors")}
+                            <div className="relative">
+                              <div className="w-12 h-12 rounded-xl bg-white border border-slate-200 group-hover:border-blue-500 group-hover:bg-blue-50/50 flex items-center justify-center shadow-md group-hover:shadow-blue-500/5 transition-all">
+                                {getDeviceIcon(p.device, 20, "text-slate-600 group-hover:text-blue-600 transition-colors")}
+                              </div>
+                              <div className="absolute -top-1.5 -right-1.5 bg-white border border-slate-200 rounded-md px-1 py-0.5 shadow-xs flex items-center justify-center scale-90 group-hover:scale-100 transition-transform">
+                                {renderSignalIndicator(peerLatencies[p.id])}
+                              </div>
                             </div>
                             <span className="text-[11px] font-medium text-slate-700 mt-1.5 group-hover:text-blue-600 transition-colors max-w-[90px] truncate text-center block">
                               {p.name}
