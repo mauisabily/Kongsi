@@ -5,6 +5,7 @@ import {defineConfig} from 'vite';
 
 export default defineConfig(() => {
   return {
+    base: './', // Use relative paths for assets to prevent blank pages on custom servers
     plugins: [react(), tailwindcss()],
     resolve: {
       alias: {
