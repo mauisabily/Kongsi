@@ -1,0 +1,6 @@
+{
+  "name": "Mauidrop",
+  "description": "Lightweight and fast web-based local file-sharing application. Share files instantly across devices on the same Wi-Fi network.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
