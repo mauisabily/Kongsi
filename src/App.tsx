@@ -92,9 +92,7 @@ export default function App() {
     rejectTransfer,
     cancelTransfer,
     sendTextMessage,
-    peerLatencies,
-    useProductionSignaling,
-    toggleProductionSignaling
+    peerLatencies
   } = useMauidrop();
 
   // App UI State
@@ -246,10 +244,7 @@ export default function App() {
 
   // Copy room link
   const copyRoomLink = () => {
-    const origin = useProductionSignaling 
-      ? "https://kongsi.kpst.my" 
-      : window.location.origin;
-    const url = `${origin}${window.location.pathname}?room=${roomCode}`;
+    const url = `${window.location.origin}${window.location.pathname}?room=${roomCode}`;
     navigator.clipboard.writeText(url).then(() => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2000);
@@ -446,23 +441,7 @@ export default function App() {
                 </div>
               </label>
 
-              <label className="flex items-start gap-3 cursor-pointer select-none group border-t border-slate-100 pt-3" id="prod-relay-toggle-label">
-                <input 
-                  type="checkbox"
-                  checked={useProductionSignaling}
-                  onChange={toggleProductionSignaling}
-                  className="mt-1 rounded border-slate-300 bg-slate-50 text-blue-600 focus:ring-blue-500/20 w-4 h-4 cursor-pointer"
-                  id="prod-relay-toggle"
-                />
-                <div className="text-xs">
-                  <span className="font-semibold text-slate-700 group-hover:text-blue-600 transition-colors">Connect to Production Server</span>
-                  <p className="text-slate-500 mt-0.5 leading-relaxed">
-                    Bridges your local client to the production server <strong>kongsi.kpst.my</strong>. Turn this on when testing from a development container or when you are alone on your network.
-                  </p>
-                </div>
-              </label>
-
-              <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100/60 text-xs text-blue-800 leading-relaxed flex items-start gap-2">
+              <div className="p-3 rounded-xl bg-blue-50/50 border border-blue-100/60 text-xs text-blue-800 leading-relaxed flex items-start gap-2 mt-3">
                 <Info size={14} className="shrink-0 mt-0.5 text-blue-600" />
                 <p>
                   <strong>Speed Tip:</strong> Use the same 5GHz Wi-Fi network on both devices to get the best direct peer-to-peer transfer performance!
@@ -479,7 +458,7 @@ export default function App() {
             </p>
             <div className="flex items-center gap-2 mt-1">
               <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 font-mono truncate select-all">
-                {`${(useProductionSignaling || window.location.origin.includes("localhost") || window.location.origin.includes("run.app")) ? "https://kongsi.kpst.my" : window.location.origin}${window.location.pathname}?room=${roomCode}`}
+                {`${window.location.origin}${window.location.pathname}?room=${roomCode}`}
               </div>
               <button
                 onClick={copyRoomLink}
@@ -588,32 +567,10 @@ export default function App() {
                       <div>
                         <span className="font-bold">Signaling Connection Error</span>
                         <p className="text-rose-700/90 mt-0.5">
-                          Failed to establish the WebSocket connection. If you are hosting on **aaPanel**, **Nginx**, or a **reverse proxy**, you must enable WebSocket proxying.
+                          Failed to establish the WebSocket connection to the signaling server.
                         </p>
                       </div>
                     </div>
-                    
-                    <details className="mt-1 border-t border-rose-200/50 pt-2 cursor-pointer select-none">
-                      <summary className="font-semibold text-rose-800 hover:text-rose-950 transition-colors list-none flex items-center gap-1">
-                        <span>🔧 View Nginx / aaPanel Fix Config</span>
-                      </summary>
-                      <div className="bg-slate-900 text-slate-100 p-2.5 rounded-lg font-mono text-[9px] select-all overflow-x-auto mt-2 border border-slate-800 shadow-inner">
-                        <p className="text-sky-400"># Add inside the 'server' block in Nginx/aaPanel:</p>
-                        <p>location /ws &#123;</p>
-                        <p className="pl-4">proxy_pass http://127.0.0.1:3000/ws;</p>
-                        <p className="pl-4">proxy_http_version 1.1;</p>
-                        <p className="pl-4">proxy_set_header Upgrade $http_upgrade;</p>
-                        <p className="pl-4">proxy_set_header Connection "upgrade";</p>
-                        <p className="pl-4">proxy_set_header Host $host;</p>
-                        <p>&#125;</p>
-                      </div>
-                    </details>
-
-                    {useProductionSignaling && (
-                      <p className="text-[10px] text-rose-600 mt-1 border-t border-rose-100/50 pt-1.5">
-                        💡 Connecting to <strong>kongsi.kpst.my</strong>. You can toggle "Connect to Production Server" off in Room settings to fallback to local connection.
-                      </p>
-                    )}
                   </div>
                 )}
 
@@ -1006,31 +963,6 @@ export default function App() {
                   <p className="text-xs font-mono font-bold text-blue-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
                     {isCustomRoom ? roomCode : `Local (Hashed IP: ${roomCode})`}
                   </p>
-                </div>
-
-                <div className="border-t border-slate-100 pt-3 flex items-center justify-between">
-                  <div className="max-w-[75%]">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-0.5">Production Signaling</label>
-                    <p className="text-[10px] text-slate-500 leading-tight">
-                      Connect to <strong>kongsi.kpst.my</strong> for cross-network sharing.
-                    </p>
-                  </div>
-                  <button
-                    onClick={toggleProductionSignaling}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-                      useProductionSignaling ? "bg-blue-600" : "bg-slate-200"
-                    }`}
-                    role="switch"
-                    aria-checked={useProductionSignaling}
-                    id="toggle-prod-signaling-switch"
-                  >
-                    <span
-                      aria-hidden="true"
-                      className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-xs transition duration-200 ease-in-out ${
-                        useProductionSignaling ? "translate-x-4" : "translate-x-0"
-                      }`}
-                    />
-                  </button>
                 </div>
 
                 <div className="border-t border-slate-100 pt-3">

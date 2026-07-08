@@ -16,17 +16,6 @@ export function useMauidrop() {
   const [isForceWebSocket, setIsForceWebSocket] = useState<boolean>(false);
   
   const [peerLatencies, setPeerLatencies] = useState<Record<string, number>>({});
-  const [useProductionSignaling, setUseProductionSignaling] = useState<boolean>(() => {
-    return localStorage.getItem("mauidrop_use_prod_signaling") === "true";
-  });
-
-  const toggleProductionSignaling = useCallback(() => {
-    setUseProductionSignaling((prev) => {
-      const next = !prev;
-      localStorage.setItem("mauidrop_use_prod_signaling", String(next));
-      return next;
-    });
-  }, []);
 
   const socketRef = useRef<WebSocket | null>(null);
   
@@ -514,12 +503,8 @@ export function useMauidrop() {
       setConnectionStatus("connecting");
       setConnectionError(null);
       
-      // Determine protocol: ws/wss based on the origin protocol
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const host = window.location.host;
-      const wsUrl = useProductionSignaling 
-        ? "wss://kongsi.kpst.my/ws" 
-        : `${protocol}//${host}/ws`;
+      // Force use production server since there's no custom local server
+      const wsUrl = "wss://kongsi.kpst.my/ws";
 
       console.log(`[Mauidrop] Connecting to WebSocket server: ${wsUrl}`);
       const socket = new WebSocket(wsUrl);
@@ -742,13 +727,7 @@ export function useMauidrop() {
       socket.onerror = (err) => {
         // Log as warn instead of error to avoid triggering error alerts for expected fallbacks
         console.warn("[WS] Error in socket connection:", err);
-        if (useProductionSignaling) {
-          console.warn("[Mauidrop] Production signaling server connection failed. Falling back to local server...");
-          setUseProductionSignaling(false);
-          localStorage.setItem("mauidrop_use_prod_signaling", "false");
-        } else {
-          setConnectionError("Could not establish connection to the signaling server.");
-        }
+        setConnectionError("Could not establish connection to the signaling server.");
         socket.close();
       };
     };
@@ -765,7 +744,7 @@ export function useMauidrop() {
         cleanupWebRTCRef.current(id);
       }
     };
-  }, [useProductionSignaling]);
+  }, []);
 
   // Keep-alive interval to prevent server termination of idle sockets
   useEffect(() => {
@@ -813,8 +792,6 @@ export function useMauidrop() {
     rejectTransfer,
     cancelTransfer,
     sendTextMessage,
-    peerLatencies,
-    useProductionSignaling,
-    toggleProductionSignaling
+    peerLatencies
   };
 }
